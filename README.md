@@ -22,7 +22,9 @@ The necessary files are already available in this repository. To set up the anim
 
 1. **Animation Data**: Create and edit your sequences in `otml files/sequences.otml`.
 
-2. **Loading**: You must configure `modules/game_things/things.lua` to load the OTML file. You can find a pre-configured `things.lua` in this repository to use as a base or inspiration.
+2. Then place the sequences.otml file in the `client/data/things/{version}/` folder.
+
+3. **Loading**: You must configure `modules/game_things/things.lua` to load the OTML file. You can find a pre-configured `things.lua` in this repository to use as a base or inspiration.
 
 
 
@@ -37,3 +39,4 @@ To prevent sprites from being "cut off" or drawing under the ground during large
 ```lua
 
 g_game.enableFeature(GameMapDrawGroundFirst)
+
