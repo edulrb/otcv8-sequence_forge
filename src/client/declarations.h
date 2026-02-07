@@ -27,6 +27,37 @@
 #include <framework/net/declarations.h>
 #include <framework/ui/declarations.h>
 
+struct SequenceFrame {
+    int frameNumber{ 0 };
+    Otc::Direction direction{ Otc::InvalidDirection };
+    Point offset{ 0, 0 };
+};
+
+class Sequence : public stdext::shared_object
+{
+public:
+    void addFrame(const SequenceFrame& frame) { m_frames.push_back(frame); }
+    const std::string& getName() { return m_name; }
+    void setName(const std::string& name) { m_name = name; }
+
+    int getFrameRate() { return m_frameRate; }
+    void setFrameRate(int frameRate) { m_frameRate = frameRate; }
+
+    size_t getTotalFrames() { return m_frames.size(); }
+    const SequenceFrame& getFrame(int frameIndex) {
+        if (frameIndex >= 0 && (size_t)frameIndex < m_frames.size()) {
+            return m_frames[frameIndex];
+        }
+        static SequenceFrame emptyFrame;
+        return emptyFrame;
+    }
+
+private:
+    std::string m_name;
+    int m_frameRate{ 10 };
+    std::vector<SequenceFrame> m_frames;
+};
+
 // core
 class Map;
 class Game;
@@ -53,6 +84,8 @@ class Town;
 class CreatureType;
 class Spawn;
 class TileBlock;
+class Sequence;
+class SequenceManager;
 
 typedef stdext::shared_object_ptr<MapView> MapViewPtr;
 typedef stdext::shared_object_ptr<LightView> LightViewPtr;
@@ -76,6 +109,8 @@ typedef stdext::shared_object_ptr<House> HousePtr;
 typedef stdext::shared_object_ptr<Town> TownPtr;
 typedef stdext::shared_object_ptr<CreatureType> CreatureTypePtr;
 typedef stdext::shared_object_ptr<Spawn> SpawnPtr;
+typedef stdext::shared_object_ptr<Sequence> SequencePtr;
+typedef stdext::shared_object_ptr<SequenceManager> SequenceManagerPtr;
 
 typedef std::vector<ThingPtr> ThingList;
 typedef std::vector<ThingTypePtr> ThingTypeList;

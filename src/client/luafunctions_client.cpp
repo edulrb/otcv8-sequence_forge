@@ -49,6 +49,7 @@
 #include "uiprogressrect.h"
 #include "uisprite.h"
 #include "outfit.h"
+#include "sequencemanager.h"
 #include "healthbars.h"
 
 #include <framework/luaengine/luainterface.h>
@@ -79,6 +80,10 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_things", "findItemTypeByCategory", &ThingTypeManager::findItemTypeByCategory, &g_things);
     g_lua.bindSingletonFunction("g_things", "findThingTypeByAttr", &ThingTypeManager::findThingTypeByAttr, &g_things);
     g_lua.bindSingletonFunction("g_things", "getMarketCategories", &ThingTypeManager::getMarketCategories, &g_things);
+
+    g_lua.registerSingletonClass("g_sequences");
+    g_lua.bindSingletonFunction("g_sequences", "load", &SequenceManager::load, &g_sequences);
+    g_lua.bindSingletonFunction("g_sequences", "getSequence", &SequenceManager::getSequence, &g_sequences);
     
     g_lua.registerSingletonClass("g_houses");
     g_lua.bindSingletonFunction("g_houses", "clear",          &HouseManager::clear,          &g_houses);
@@ -973,4 +978,12 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIGraph>("setShowLabels", &UIGraph::setShowLabels);
 
     g_lua.registerClass<UIMapAnchorLayout, UIAnchorLayout>();
+    
+g_lua.bindGlobalFunction("playSequence", [](int id) {
+    if (g_game.isOnline()) {
+        if (LocalPlayerPtr player = g_game.getLocalPlayer()) {
+            player->playSequence(id);
+        }
+    }
+});
 }

@@ -212,6 +212,9 @@ namespace Proto {
         GameServerStoreTransactionHistory   = 253, // 1080
         GameServerStoreCompletePurchase     = 254  // 1080
     };
+    enum ExtendedOpcodes_t {
+        EXT_OPCODE_PLAYSEQUENCE = 0x01,
+    };
 
     enum ClientOpcodes : uint8
     {

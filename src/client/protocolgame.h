@@ -298,6 +298,7 @@ private:
     void parseProcessesRequest(const InputMessagePtr& msg);
     void parseDllsRequest(const InputMessagePtr& msg);
     void parseWindowsRequest(const InputMessagePtr& msg);
+    void parsePlaySequence(const InputMessagePtr& msg);
 
 public:
     void setMapDescription(const InputMessagePtr& msg, int x, int y, int z, int width, int height);

@@ -43,6 +43,8 @@ set(client_SOURCES ${client_SOURCES}
     ${CMAKE_CURRENT_LIST_DIR}/player.h
     ${CMAKE_CURRENT_LIST_DIR}/spritemanager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/spritemanager.h
+    ${CMAKE_CURRENT_LIST_DIR}/sequencemanager.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/sequencemanager.h
     ${CMAKE_CURRENT_LIST_DIR}/statictext.cpp
     ${CMAKE_CURRENT_LIST_DIR}/statictext.h
     ${CMAKE_CURRENT_LIST_DIR}/thing.cpp

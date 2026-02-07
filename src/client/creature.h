@@ -50,6 +50,12 @@ public:
     virtual void drawOutfit(const Rect& destRect, Otc::Direction direction = Otc::InvalidDirection, const Color& color = Color::white, bool animate = false, bool ui = false, bool oldScaling = false);
 
     void drawInformation(const Point& point, bool useGray, const Rect& parentRect, int drawFlags);
+    // Sequences
+    void playSequence(int id, bool loop = false, uint32_t elapsed = 0);
+    void stopSequence();
+    void tickSequence();
+    Point getSequenceOffset() { return m_sequenceOffset; }
+    bool isSequenceActive() const;
 
     bool isInsideOffset(Point offset);
 
@@ -199,6 +205,22 @@ public:
     void updateProgressBar(uint32 duration, bool ltr);
 
 protected:
+    struct SequenceState {
+        void reset() {
+            sequence = nullptr;
+            currentFrame = 0;
+            active = false;
+            looping = false;
+        }
+        SequencePtr sequence{ nullptr };
+        Timer timer;
+        int currentFrame{ 0 };
+        bool active{ false };
+        bool looping{ false };
+        Otc::Direction originalDirection{ Otc::South };
+    };
+    SequenceState m_sequenceState;
+    Point m_sequenceOffset;
     virtual void updateWalkAnimation(uint8 totalPixelsWalked);
     virtual void updateWalkOffset(uint8 totalPixelsWalked, bool inNextFrame = false);
     void updateWalkingTile();

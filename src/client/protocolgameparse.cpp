@@ -1224,6 +1224,13 @@ void ProtocolGame::parseTileRemoveThing(const InputMessagePtr& msg)
         return;
     }
 
+    if (thing->isCreature()) {
+        CreaturePtr creature = thing->static_self_cast<Creature>();
+        if (creature && creature->isSequenceActive()) {
+            creature->stopSequence();
+        }
+    }
+
     if (!g_map.removeThing(thing))
         g_logger.traceError("unable to remove thing");
 }
@@ -3090,13 +3097,21 @@ void ProtocolGame::parseHunting(const InputMessagePtr& msg)
 
 void ProtocolGame::parseExtendedOpcode(const InputMessagePtr& msg)
 {
-    int opcode = msg->getU8();
-    std::string buffer = msg->getString();
+    uint8_t subOpcode = msg->peekU8();
 
-    if (opcode == 0)
-        m_enableSendExtendedOpcode = true;
-    else
-        callLuaField("onExtendedOpcode", opcode, buffer);
+    if (subOpcode == Proto::EXT_OPCODE_PLAYSEQUENCE) {
+        msg->getU8();
+        parsePlaySequence(msg);
+    } else {
+        uint8_t originalOpcode = msg->getU8();
+        std::string buffer = msg->getString();
+
+        if (originalOpcode == 0) {
+            m_enableSendExtendedOpcode = true;
+        } else {
+            callLuaField("onExtendedOpcode", originalOpcode, buffer);
+        }
+    }
 }
 
 void ProtocolGame::parseChangeMapAwareRange(const InputMessagePtr& msg)
@@ -3651,4 +3666,15 @@ Position ProtocolGame::getPosition(const InputMessagePtr& msg)
     uint8 z = msg->getU8();
 
     return Position(x, y, z);
+}
+
+void ProtocolGame::parsePlaySequence(const InputMessagePtr& msg)
+{
+    uint32 creatureId = msg->getU32();
+    uint16 sequenceId = msg->getU16();
+    bool loop = msg->getU8() == 1;
+
+    if (CreaturePtr creature = g_map.getCreatureById(creatureId)) {
+        creature->playSequence(sequenceId, loop);
+    }
 }

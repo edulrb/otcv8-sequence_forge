@@ -41,6 +41,7 @@
 #include <framework/graphics/texturemanager.h>
 #include <framework/graphics/framebuffermanager.h>
 #include "spritemanager.h"
+#include "sequencemanager.h"
 
 #include <framework/util/stats.h>
 #include <framework/util/extras.h>
@@ -81,29 +82,35 @@ Creature::~Creature()
 
 void Creature::draw(const Point& dest, bool animate, LightView* lightView)
 {   
+    tickSequence();
+    
     if (!canBeSeen())
         return;
 
+    Point finalDest = dest + getDrawOffset();
     const int sprSize = g_sprites.spriteSize();
-    Point jumpOffset = Point(m_jumpOffset.x, m_jumpOffset.y);
-    Point creatureCenter = dest - jumpOffset + m_walkOffset - getDisplacement() + Point(sprSize / 2, sprSize / 2);
+    Point creatureCenter = finalDest - getDisplacement() + Point(sprSize / 2, sprSize / 2);
     drawBottomWidgets(creatureCenter, m_walking ? m_walkDirection : m_direction);
 
     Point animationOffset = animate ? m_walkOffset : Point(0, 0);
 
     if (m_showTimedSquare && animate) {
-        g_drawQueue->addBoundingRect(Rect(dest - jumpOffset + (animationOffset - getDisplacement() + 2 * g_sprites.getOffsetFactor()), Size(sprSize - 4 * g_sprites.getOffsetFactor(), sprSize - 4 * g_sprites.getOffsetFactor())), 2 * g_sprites.getOffsetFactor(), m_timedSquareColor);
+        const int sprSize = g_sprites.spriteSize();
+        Rect targetRect = Rect(finalDest - getDisplacement(), Size(sprSize, sprSize));
+        g_drawQueue->addBoundingRect(targetRect, 2 * g_sprites.getOffsetFactor(), m_timedSquareColor);
     }
 
     if (m_showStaticSquare && animate) {
-        g_drawQueue->addBoundingRect(Rect(dest - jumpOffset + (animationOffset - getDisplacement()), Size(sprSize, sprSize)), 2 * g_sprites.getOffsetFactor(), m_staticSquareColor);
+        const int sprSize = g_sprites.spriteSize();
+        Rect targetRect = Rect(finalDest - getDisplacement(), Size(sprSize, sprSize));
+        g_drawQueue->addBoundingRect(targetRect, 2 * g_sprites.getOffsetFactor(), m_staticSquareColor);
     }
 
     if (m_outfit.getCategory() != ThingCategoryCreature)
         animationOffset -= getDisplacement();
 
     size_t drawQueueSize = g_drawQueue->size();
-    m_outfit.draw(dest - jumpOffset + animationOffset, m_walking ? m_walkDirection : m_direction, m_walkAnimationPhase, true, lightView);
+    m_outfit.draw(finalDest, m_walking ? m_walkDirection : m_direction, m_walkAnimationPhase, true, lightView);
     if (m_marked) {
         g_drawQueue->setMark(drawQueueSize, updatedMarkedColor());
     }
@@ -454,6 +461,7 @@ void Creature::onDisappear()
     m_disappearEvent = g_dispatcher.addEvent([self] {
         self->m_removed = true;
         self->stopWalk();
+        self->m_sequenceState.reset();
 
         self->callLuaField("onDisappear");
 
@@ -681,7 +689,12 @@ void Creature::setHealthPercent(uint8 healthPercent)
 void Creature::setDirection(Otc::Direction direction)
 {
     VALIDATE(direction != Otc::InvalidDirection);
-    m_direction = direction;
+    if (m_direction != direction) {
+        m_direction = direction;
+        if (!m_sequenceState.active) {
+            m_sequenceState.originalDirection = m_direction;
+        }
+    }
 }
 
 void Creature::setOutfit(const Outfit& outfit)
@@ -861,17 +874,7 @@ void Creature::updateShield()
 
 Point Creature::getDrawOffset()
 {
-    Point drawOffset;
-    if (m_walking) {
-        if (m_walkingTile)
-            drawOffset -= Point(1, 1) * m_walkingTile->getDrawElevation() * g_sprites.getOffsetFactor();
-        drawOffset += m_walkOffset;
-    } else {
-        const TilePtr& tile = getTile();
-        if (tile)
-            drawOffset -= Point(1, 1) * tile->getDrawElevation() * g_sprites.getOffsetFactor();
-    }
-    return drawOffset;
+    return m_walkOffset - Point(m_jumpOffset.x, m_jumpOffset.y) + m_sequenceOffset;
 }
 
 uint16 Creature::getStepDuration(bool ignoreDiagonal, Otc::Direction dir)
@@ -1213,4 +1216,86 @@ void Creature::setTitle(const std::string& title, const std::string& font, const
         m_titleCache.setFont(g_fonts.getFont(font));
     }
     m_titleColor = color;
+}
+
+void Creature::playSequence(int id, bool loop, uint32_t elapsed)
+{
+    if (id == 0) {
+        m_sequenceState.reset();
+        return;
+    }
+
+    SequencePtr seq = g_sequences.getSequence(id);
+    if (!seq || seq->getTotalFrames() == 0) {
+        return;
+    }
+
+    m_sequenceState.reset();
+    m_sequenceState.sequence = seq;
+    m_sequenceState.active = true;
+    m_sequenceState.looping = loop;
+    m_sequenceState.timer.restart();
+    m_sequenceState.originalDirection = m_direction;
+
+    if (elapsed > 0) {
+        const float frameDuration = 1000.0f / m_sequenceState.sequence->getFrameRate();
+        if (frameDuration > 0) {
+            m_sequenceState.currentFrame = static_cast<int>(elapsed / frameDuration);
+            if (m_sequenceState.currentFrame >= m_sequenceState.sequence->getTotalFrames()) {
+                if (loop) {
+                    m_sequenceState.currentFrame %= m_sequenceState.sequence->getTotalFrames();
+                } else {
+                    m_sequenceState.reset();
+                    return;
+                }
+            }
+        }
+    }
+
+    tickSequence();
+}
+
+void Creature::tickSequence()
+{
+    if (!m_sequenceState.active || !m_sequenceState.sequence) {
+        m_sequenceOffset = Point(0, 0);
+        return;
+    }
+
+    const float frameDuration = 1000.0f / m_sequenceState.sequence->getFrameRate();
+    int totalFrames = m_sequenceState.sequence->getTotalFrames();
+
+    if (m_sequenceState.timer.ticksElapsed() >= frameDuration) {
+        m_sequenceState.currentFrame++;
+        m_sequenceState.timer.restart();
+    }
+
+    if (m_sequenceState.currentFrame >= totalFrames) {
+        if (m_sequenceState.looping) {
+            m_sequenceState.currentFrame = 0;
+        } else {
+            setDirection(m_sequenceState.originalDirection);
+            m_sequenceState.reset();
+            m_sequenceOffset = Point(0, 0);
+            return;
+        }
+    }
+
+    const auto& currentFrameData = m_sequenceState.sequence->getFrame(m_sequenceState.currentFrame);
+    if (currentFrameData.direction != Otc::InvalidDirection) {
+        setDirection(currentFrameData.direction);
+    }
+    
+    m_sequenceOffset = currentFrameData.offset;
+}
+
+void Creature::stopSequence()
+{
+    m_sequenceState.reset();
+    m_sequenceOffset = Point(0, 0);
+}
+
+bool Creature::isSequenceActive() const
+{
+    return m_sequenceState.active;
 }

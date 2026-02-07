@@ -58,6 +58,14 @@ vc16/Debug_lib/
 *.exp
 *.zip
 
+# Pastas de build e temporários do Visual Studio
+build/
+*.iobj
+*.ipdb
+*.obj
+*.pdb
+*.exe
+
 #################
 ## Visual Studio
 #################
